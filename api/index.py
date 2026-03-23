@@ -5,7 +5,6 @@ import urllib.request
 import urllib.parse
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-DOWNLOADER_BASE = "https://tiktok-downloder.vercel.app/api/download"
 BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 
 
@@ -61,25 +60,25 @@ def get_user_profile_photos(user_id):
 
 
 def fetch_download_url(tiktok_url):
-    encoded = urllib.parse.quote(tiktok_url, safe="")
-    api_url = f"{DOWNLOADER_BASE}?url={encoded}"
-    req = urllib.request.Request(api_url, headers={"User-Agent": "TelegramBot/1.0"})
+    # Using tikwm.com - free, no API key needed
+    api_url = "https://www.tikwm.com/api/"
+    data = urllib.parse.urlencode({"url": tiktok_url, "hd": 1}).encode("utf-8")
+    req = urllib.request.Request(
+        api_url,
+        data=data,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Mozilla/5.0",
+        }
+    )
     try:
         with urllib.request.urlopen(req, timeout=20) as resp:
-            raw = resp.read()
-            try:
-                data = json.loads(raw)
-                for key in ("url", "download_url", "videoUrl", "video_url", "link"):
-                    if data.get(key):
-                        return data[key]
-                if isinstance(data.get("data"), dict):
-                    for key in ("url", "download_url", "videoUrl", "video_url", "link"):
-                        if data["data"].get(key):
-                            return data["data"][key]
-                return None
-            except json.JSONDecodeError:
-                text = raw.decode("utf-8").strip()
-                return text if text.startswith("http") else None
+            result = json.loads(resp.read())
+            if result.get("code") == 0:
+                video_data = result.get("data", {})
+                # Try HD first, then normal
+                return video_data.get("hdplay") or video_data.get("play")
+            return None
     except Exception:
         return None
 
